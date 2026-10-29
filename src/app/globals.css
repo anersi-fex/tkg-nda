@@ -1,0 +1,390 @@
+@import "tailwindcss";
+@import "@fontsource-variable/plus-jakarta-sans";
+@import "@fontsource-variable/space-grotesk";
+
+/*
+ * Tide, the TKG app theme (the same neutrals, type, cards and radii as Sales Coach and
+ * Scorecard), in Ink's own colorway: graphite to slate for the mark and primary buttons, gold for
+ * the places a signer taps (initial and signature tabs, the way paper documents flag them), and
+ * "paper" tokens for the agreement itself, which stays a white sheet in both modes.
+ * Every color is a CSS variable below with light and dark values; components use the tokens only.
+ */
+@theme {
+  --font-sans: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Space Grotesk Variable", "Space Grotesk", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-ink: var(--t-page);
+  --color-surface: var(--t-card);
+  --color-surface-2: var(--t-raised);
+
+  --color-gray-50: var(--t-gray-50);
+  --color-gray-100: var(--t-gray-100);
+  --color-gray-200: var(--t-gray-200);
+  --color-gray-300: var(--t-gray-300);
+  --color-gray-400: var(--t-gray-400);
+  --color-gray-500: var(--t-gray-500);
+  --color-gray-600: var(--t-gray-600);
+  --color-gray-700: var(--t-gray-700);
+  --color-gray-800: var(--t-gray-800);
+  --color-gray-900: var(--t-gray-900);
+
+  --color-blue-50: var(--t-blue-50);
+  --color-blue-100: var(--t-blue-100);
+  --color-blue-200: var(--t-blue-200);
+  --color-blue-800: var(--t-blue-800);
+  --color-blue-900: var(--t-blue-900);
+
+  --color-green-50: var(--t-green-50);
+  --color-green-100: var(--t-green-100);
+  --color-green-200: var(--t-green-200);
+  --color-green-700: var(--t-green-700);
+  --color-green-800: var(--t-green-800);
+  --color-green-900: var(--t-green-900);
+
+  --color-amber-50: var(--t-amber-50);
+  --color-amber-100: var(--t-amber-100);
+  --color-amber-200: var(--t-amber-200);
+  --color-amber-800: var(--t-amber-800);
+  --color-amber-900: var(--t-amber-900);
+
+  --color-red-50: var(--t-red-50);
+  --color-red-100: var(--t-red-100);
+  --color-red-200: var(--t-red-200);
+  --color-red-700: var(--t-red-700);
+  --color-red-800: var(--t-red-800);
+  --color-red-900: var(--t-red-900);
+
+  --color-line: var(--t-line);
+  --color-muted: var(--t-gray-500);
+  --color-accent: var(--t-accent);
+  --color-accent-text: var(--t-accent-text);
+  --color-tint: var(--t-tint);
+  --color-track: var(--t-track);
+  --color-segment: var(--t-segment);
+  --color-danger: var(--t-danger);
+  --color-chip: var(--t-chip-bg);
+  --color-chip-text: var(--t-chip-text);
+  /* Where a signer taps: gold tabs */
+  --color-tab: var(--t-tab);
+  --color-tab-text: var(--t-tab-text);
+  --color-tab-line: var(--t-tab-line);
+  --color-done: var(--t-done);
+  --color-done-text: var(--t-done-text);
+  /* The agreement sheet: paper in both modes */
+  --color-paper: var(--t-paper);
+  --color-paper-text: var(--t-paper-text);
+  --color-paper-muted: var(--t-paper-muted);
+  --color-paper-line: var(--t-paper-line);
+}
+
+/* Light (default) */
+:root {
+  color-scheme: light;
+  --t-page: #f2f3f7;
+  --t-card: #ffffff;
+  --t-raised: #f6f7fa;
+  --t-line: #e6e8ee;
+  --t-track: #e4e6ec;
+  --t-segment: #ffffff;
+
+  --t-gray-50: #f2f3f7;
+  --t-gray-100: #ebedf2;
+  --t-gray-200: #e3e6ec;
+  --t-gray-300: #d3d7e0;
+  --t-gray-400: #9aa0ad;
+  --t-gray-500: #646a78;
+  --t-gray-600: #555b69;
+  --t-gray-700: #3d424d;
+  --t-gray-800: #262a33;
+  --t-gray-900: #15171c;
+
+  --t-blue-50: #eef2ff;
+  --t-blue-100: #e6ecff;
+  --t-blue-200: #ccd8ff;
+  --t-blue-800: #1d3a9f;
+  --t-blue-900: #172e7d;
+
+  --t-green-50: #eaf8f0;
+  --t-green-100: #dff5e8;
+  --t-green-200: #bde8cf;
+  --t-green-700: #167a45;
+  --t-green-800: #12663a;
+  --t-green-900: #0d4d2c;
+
+  --t-amber-50: #fff7e6;
+  --t-amber-100: #ffefc7;
+  --t-amber-200: #ffdf94;
+  --t-amber-800: #7a5000;
+  --t-amber-900: #5f3e00;
+
+  --t-red-50: #fdeeee;
+  --t-red-100: #fbdcdc;
+  --t-red-200: #f5b8b9;
+  --t-red-700: #c42b32;
+  --t-red-800: #a3242a;
+  --t-red-900: #7f1d22;
+
+  /* Ink: graphite to slate */
+  --t-accent: #334155;
+  --t-accent-text: #2b3647;
+  --t-tint: #e8ebf1;
+  --t-grad-from: #1f2937;
+  --t-grad-to: #475569;
+  --t-grad: linear-gradient(135deg, var(--t-grad-from), var(--t-grad-to));
+  --t-grad-strong: linear-gradient(135deg, #1f2937, #3b4860);
+  --t-danger: #c42b32;
+  --t-glow: rgba(31, 41, 55, 0.28);
+  --t-chip-bg: #e2e8f0;
+  --t-chip-text: #1e293b;
+  --t-shadow: 0 1px 2px rgba(21, 23, 28, 0.04), 0 8px 24px rgba(21, 23, 28, 0.06);
+  --t-shadow-float: 0 2px 6px rgba(21, 23, 28, 0.06), 0 18px 40px rgba(21, 23, 28, 0.14);
+
+  --t-tab: #f5c451;
+  --t-tab-text: #3d2a00;
+  --t-tab-line: #c98a00;
+  --t-done: #dff5e8;
+  --t-done-text: #12663a;
+
+  --t-paper: #ffffff;
+  --t-paper-text: #15171c;
+  --t-paper-muted: #555b69;
+  --t-paper-line: #e3e6ec;
+}
+
+/* Dark: the phone's setting, unless the viewer picked light */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --t-page: #0b0d12;
+    --t-card: #141823;
+    --t-raised: #1b2030;
+    --t-line: #262c3b;
+    --t-track: #1b2030;
+    --t-segment: #2a3142;
+
+    --t-gray-50: #10131a;
+    --t-gray-100: #171b26;
+    --t-gray-200: #232837;
+    --t-gray-300: #2e3445;
+    --t-gray-400: #6e768a;
+    --t-gray-500: #8c93a5;
+    --t-gray-600: #a3a9b8;
+    --t-gray-700: #c3c8d4;
+    --t-gray-800: #dcdfe6;
+    --t-gray-900: #eef0f5;
+
+    --t-blue-50: #161d33;
+    --t-blue-100: #1c2543;
+    --t-blue-200: #263160;
+    --t-blue-800: #b4c4ff;
+    --t-blue-900: #d3ddff;
+
+    --t-green-50: #0f2418;
+    --t-green-100: #143221;
+    --t-green-200: #1f4a31;
+    --t-green-700: #4ade80;
+    --t-green-800: #86efac;
+    --t-green-900: #bbf7d0;
+
+    --t-amber-50: #2a1d07;
+    --t-amber-100: #3d2a0a;
+    --t-amber-200: #5a3d0e;
+    --t-amber-800: #fcd34d;
+    --t-amber-900: #fde68a;
+
+    --t-red-50: #2a1210;
+    --t-red-100: #3d1a16;
+    --t-red-200: #5a2621;
+    --t-red-700: #f87171;
+    --t-red-800: #fca5a5;
+    --t-red-900: #fecaca;
+
+    --t-accent: #94a3b8;
+    --t-accent-text: #b6c2d3;
+    --t-tint: #1e2636;
+    --t-grad-from: #334155;
+    --t-grad-to: #64748b;
+    --t-grad: linear-gradient(135deg, var(--t-grad-from), var(--t-grad-to));
+    --t-grad-strong: linear-gradient(135deg, #2b3647, #3e4c62);
+    --t-danger: #d0353b;
+    --t-glow: rgba(100, 116, 139, 0.35);
+    --t-chip-bg: #263140;
+    --t-chip-text: #cbd5e1;
+    --t-shadow: inset 0 0 0 1px #1d2230, 0 12px 32px rgba(0, 0, 0, 0.35);
+    --t-shadow-float: inset 0 0 0 1px #262c3b, 0 18px 44px rgba(0, 0, 0, 0.55);
+
+    --t-tab: #e9b949;
+    --t-tab-text: #3d2a00;
+    --t-tab-line: #b07a00;
+    --t-done: #1f4a31;
+    --t-done-text: #bbf7d0;
+
+    --t-paper: #f6f3ec;
+    --t-paper-text: #15171c;
+    --t-paper-muted: #555b69;
+    --t-paper-line: #ddd8cc;
+  }
+}
+
+/* Dark picked by hand (the same values as above) */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --t-page: #0b0d12;
+  --t-card: #141823;
+  --t-raised: #1b2030;
+  --t-line: #262c3b;
+  --t-track: #1b2030;
+  --t-segment: #2a3142;
+
+  --t-gray-50: #10131a;
+  --t-gray-100: #171b26;
+  --t-gray-200: #232837;
+  --t-gray-300: #2e3445;
+  --t-gray-400: #6e768a;
+  --t-gray-500: #8c93a5;
+  --t-gray-600: #a3a9b8;
+  --t-gray-700: #c3c8d4;
+  --t-gray-800: #dcdfe6;
+  --t-gray-900: #eef0f5;
+
+  --t-blue-50: #161d33;
+  --t-blue-100: #1c2543;
+  --t-blue-200: #263160;
+  --t-blue-800: #b4c4ff;
+  --t-blue-900: #d3ddff;
+
+  --t-green-50: #0f2418;
+  --t-green-100: #143221;
+  --t-green-200: #1f4a31;
+  --t-green-700: #4ade80;
+  --t-green-800: #86efac;
+  --t-green-900: #bbf7d0;
+
+  --t-amber-50: #2a1d07;
+  --t-amber-100: #3d2a0a;
+  --t-amber-200: #5a3d0e;
+  --t-amber-800: #fcd34d;
+  --t-amber-900: #fde68a;
+
+  --t-red-50: #2a1210;
+  --t-red-100: #3d1a16;
+  --t-red-200: #5a2621;
+  --t-red-700: #f87171;
+  --t-red-800: #fca5a5;
+  --t-red-900: #fecaca;
+
+  --t-accent: #94a3b8;
+  --t-accent-text: #b6c2d3;
+  --t-tint: #1e2636;
+  --t-grad-from: #334155;
+  --t-grad-to: #64748b;
+  --t-grad: linear-gradient(135deg, var(--t-grad-from), var(--t-grad-to));
+  --t-grad-strong: linear-gradient(135deg, #2b3647, #3e4c62);
+  --t-danger: #d0353b;
+  --t-glow: rgba(100, 116, 139, 0.35);
+  --t-chip-bg: #263140;
+  --t-chip-text: #cbd5e1;
+  --t-shadow: inset 0 0 0 1px #1d2230, 0 12px 32px rgba(0, 0, 0, 0.35);
+  --t-shadow-float: inset 0 0 0 1px #262c3b, 0 18px 44px rgba(0, 0, 0, 0.55);
+
+  --t-tab: #e9b949;
+  --t-tab-text: #3d2a00;
+  --t-tab-line: #b07a00;
+  --t-done: #1f4a31;
+  --t-done-text: #bbf7d0;
+
+  --t-paper: #f6f3ec;
+  --t-paper-text: #15171c;
+  --t-paper-muted: #555b69;
+  --t-paper-line: #ddd8cc;
+}
+
+/* Tide helpers: the gradient (primary buttons, the logo), card and float shadows. */
+@utility bg-tide {
+  background-image: var(--t-grad);
+}
+@utility bg-tide-strong {
+  background-image: var(--t-grad-strong);
+}
+@utility shadow-card {
+  box-shadow: var(--t-shadow);
+}
+@utility shadow-float {
+  box-shadow: var(--t-shadow-float);
+}
+@utility shadow-glow {
+  box-shadow: 0 8px 22px var(--t-glow);
+}
+
+/* Signature styles a signer can type their name in (open-license fonts in public/fonts). */
+@font-face {
+  font-family: "Sig Caveat";
+  src: url("/fonts/Caveat.ttf") format("truetype");
+  font-weight: 400 700;
+  font-display: block;
+}
+@font-face {
+  font-family: "Sig Dancing";
+  src: url("/fonts/DancingScript.ttf") format("truetype");
+  font-weight: 400 700;
+  font-display: block;
+}
+@font-face {
+  font-family: "Sig Apple";
+  src: url("/fonts/HomemadeApple.ttf") format("truetype");
+  font-weight: 400;
+  font-display: block;
+}
+.font-sig-caveat {
+  font-family: "Sig Caveat", cursive;
+}
+.font-sig-dancing {
+  font-family: "Sig Dancing", cursive;
+}
+.font-sig-apple {
+  font-family: "Sig Apple", cursive;
+}
+
+.font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+html {
+  height: 100%;
+}
+body {
+  min-height: 100%;
+  font-family: var(--font-sans);
+  background: var(--color-ink);
+  color: var(--color-gray-900);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Safe area for iPhones with a home indicator */
+.pb-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+}
+
+/* The drawing pad must not scroll the page under a finger */
+.touch-none {
+  touch-action: none;
+}
+
+/* A tab that waits for a tap pulses gently so the eye finds it */
+@keyframes tab-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(201, 138, 0, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(201, 138, 0, 0);
+  }
+}
+.tab-waiting {
+  animation: tab-pulse 1.8s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab-waiting {
+    animation: none;
+  }
+}
