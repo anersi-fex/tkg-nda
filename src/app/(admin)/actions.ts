@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireOwner } from "@/lib/auth";
+import { checkDatabase } from "@/lib/db-health";
 import { cleanEmail, cleanLegalName, freezeDocument } from "@/lib/document";
 import { addEvent, createEnvelope, envelopeById, voidEnvelope } from "@/lib/envelopes";
 import { requestInfo } from "@/lib/request-info";
@@ -32,7 +33,8 @@ export async function createNda(_prev: FormState, form: FormData): Promise<FormS
     id = env.id;
   } catch (err) {
     console.error(`create_nda_failed ${err instanceof Error ? err.message : "error"}`);
-    return { error: "Couldn't save it. Is the database set up? (SETUP.md step 3)" };
+    const health = await checkDatabase();
+    return { error: health.ok ? "Couldn't save it. Send Claude a screenshot of this screen." : `${health.message} ${health.fix}` };
   }
   try {
     await addEvent(id, "issued", requestInfo(await headers()), { details: { by: settings.ownerName, company: settings.companyName } });
@@ -60,10 +62,12 @@ export async function saveAppSettings(_prev: FormState, form: FormData): Promise
   await requireOwner();
   const next = cleanSettings(Object.fromEntries(["companyName", "companyAddress", "ownerName", "ownerTitle", "ownerEmail"].map((k) => [k, form.get(k)])) as Partial<Record<keyof AppSettings, unknown>>);
   if (next.ownerEmail && cleanEmail(next.ownerEmail) === undefined) return { error: "That email doesn't look right." };
+  const health = await checkDatabase();
+  if (!health.ok) return { error: `${health.message} ${health.fix}` };
   try {
     await saveSettings(next);
   } catch {
-    return { error: "Couldn't save. Is the database set up?" };
+    return { error: "Couldn't save, though the database answers. Send Claude a screenshot of this screen." };
   }
   revalidatePath("/", "layout");
   return { error: null, saved: true };
