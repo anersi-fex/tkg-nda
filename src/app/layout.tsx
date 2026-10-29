@@ -2,6 +2,28 @@ import type { Metadata, Viewport } from "next";
 import { THEME_SCRIPT } from "@/lib/theme-script";
 import "./globals.css";
 
+/** iPhone screens (CSS width, height, pixel ratio) with a branded opening screen, light and dark (scripts/gen-icons.mjs). */
+const SPLASH_SCREENS: Array<[number, number, number]> = [
+  [440, 956, 3],
+  [420, 912, 3],
+  [402, 874, 3],
+  [430, 932, 3],
+  [393, 852, 3],
+  [428, 926, 3],
+  [390, 844, 3],
+  [375, 812, 3],
+  [414, 896, 3],
+  [414, 896, 2],
+  [375, 667, 2],
+  [414, 736, 3],
+];
+const screenQuery = (w: number, h: number, ratio: number) => `(device-width: ${w}px) and (device-height: ${h}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: portrait)`;
+// Light screens first with no color-scheme condition, then the dark ones: an iPhone keeps the last link that matches.
+const startupImage = [
+  ...SPLASH_SCREENS.map(([w, h, ratio]) => ({ url: `/splash/splash-${w * ratio}x${h * ratio}.png`, media: screenQuery(w, h, ratio) })),
+  ...SPLASH_SCREENS.map(([w, h, ratio]) => ({ url: `/splash/splash-${w * ratio}x${h * ratio}-dark.png`, media: `(prefers-color-scheme: dark) and ${screenQuery(w, h, ratio)}` })),
+];
+
 /** The live address for link previews; a malformed APP_URL never takes a page down. */
 function appBase(): URL {
   try {
@@ -24,7 +46,7 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-touch-icon.png",
   },
-  appleWebApp: { capable: true, title: "Ink", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Ink", statusBarStyle: "default", startupImage },
   other: { "apple-mobile-web-app-capable": "yes" },
   openGraph: {
     type: "website",

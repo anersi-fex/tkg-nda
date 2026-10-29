@@ -8,7 +8,7 @@ import { initialsOf } from "@/lib/document";
  * Adopting a signature, the way DocuSign does it: type your name and pick a style, or draw with a
  * finger. Either way the result is two PNG images (signature and initials) drawn in the browser,
  * so what the signer saw is exactly what goes on the PDF. Everything here is local until the
- * signer taps "Adopt and continue".
+ * signer taps "Adopt and continue". The statement under the buttons comes from the frozen agreement.
  */
 export type Adoption = { method: "typed" | "drawn"; style: string | null; signaturePng: string; initialsPng: string };
 
@@ -42,16 +42,26 @@ function renderTyped(text: string, family: string, weight: number, w: number, h:
   return canvas.toDataURL("image/png");
 }
 
+/** Whether a drawing pad really holds ink (not a flag: the pixels). */
+function hasInk(canvas: HTMLCanvasElement | null): boolean {
+  if (!canvas) return false;
+  const ctx = canvas.getContext("2d");
+  if (!ctx || canvas.width === 0 || canvas.height === 0) return false;
+  const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  let inked = 0;
+  for (let i = 3; i < data.length; i += 4) if (data[i] > 40 && ++inked > 60) return true;
+  return false;
+}
+
 async function loadFonts() {
   if (!("fonts" in document)) return;
   await Promise.all(SIGNATURE_STYLES.map((s) => document.fonts.load(`${s.weight} 40px "${s.family}"`).catch(() => undefined)));
 }
 
-/** A finger-drawing pad; `onChange` says whether anything is drawn. */
+/** A finger-drawing pad; `onChange` says whether anything was drawn since the last clear. */
 function DrawPad({ height, label, padRef, onChange }: { height: number; label: string; padRef: React.RefObject<HTMLCanvasElement | null>; onChange: (hasInk: boolean) => void }) {
   const drawing = useRef(false);
   const last = useRef<{ x: number; y: number } | null>(null);
-  const strokes = useRef(0);
 
   useEffect(() => {
     const canvas = padRef.current;
@@ -102,21 +112,19 @@ function DrawPad({ height, label, padRef, onChange }: { height: number; label: s
     if (!drawing.current) return;
     drawing.current = false;
     last.current = null;
-    strokes.current += 1;
     onChange(true);
   };
   const clear = () => {
     const canvas = padRef.current;
     const ctx = canvas?.getContext("2d");
     if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-    strokes.current = 0;
     onChange(false);
   };
   return (
     <div>
       <div className="mb-1 flex items-center justify-between">
         <span className="text-xs font-semibold text-gray-600">{label}</span>
-        <button type="button" onClick={clear} className="text-xs font-semibold text-accent-text">
+        <button type="button" onClick={clear} className="-mr-2 inline-flex min-h-11 items-center px-2 text-xs font-semibold text-accent-text">
           Clear
         </button>
       </div>
@@ -135,25 +143,37 @@ function DrawPad({ height, label, padRef, onChange }: { height: number; label: s
   );
 }
 
-export function SignaturePad({ name, onAdopt, onCancel }: { name: string; onAdopt: (a: Adoption) => Promise<void>; onCancel: () => void }) {
-  const [tab, setTab] = useState<"type" | "draw">("type");
+export function SignaturePad({ name, statement, onAdopt, onCancel }: { name: string; statement: string; onAdopt: (a: Adoption) => Promise<void>; onCancel: () => void }) {
+  const [tab, setTabState] = useState<"type" | "draw">("type");
   const [style, setStyle] = useState<StyleKey>("caveat");
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSig, setHasSig] = useState(false);
-  const [hasInit, setHasInit] = useState(false);
+  const [, setHasInit] = useState(false);
   const sigPad = useRef<HTMLCanvasElement | null>(null);
   const initPad = useRef<HTMLCanvasElement | null>(null);
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
   const initials = initialsOf(name);
+
+  // The pads unmount when the tab changes, so what was drawn is gone with them.
+  const setTab = (t: "type" | "draw") => {
+    setTabState(t);
+    setHasSig(false);
+    setHasInit(false);
+  };
 
   useEffect(() => {
     let alive = true;
     loadFonts().then(() => {
       if (alive) setReady(true);
     });
+    headingRef.current?.focus();
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     return () => {
       alive = false;
+      document.body.style.overflow = prev;
     };
   }, []);
 
@@ -168,10 +188,10 @@ export function SignaturePad({ name, onAdopt, onCancel }: { name: string; onAdop
         const initialsPng = renderTyped(initials, s.family, s.weight, 240, 160, s.scale);
         await onAdopt({ method: "typed", style: s.key, signaturePng, initialsPng });
       } else {
-        if (!hasSig || !sigPad.current) throw new Error("Draw your signature first.");
-        const signaturePng = sigPad.current.toDataURL("image/png");
+        if (!hasInk(sigPad.current)) throw new Error("Draw your signature first.");
+        const signaturePng = sigPad.current!.toDataURL("image/png");
         const s = SIGNATURE_STYLES[0];
-        const initialsPng = hasInit && initPad.current ? initPad.current.toDataURL("image/png") : renderTyped(initials, s.family, s.weight, 240, 160, s.scale);
+        const initialsPng = hasInk(initPad.current) ? initPad.current!.toDataURL("image/png") : renderTyped(initials, s.family, s.weight, 240, 160, s.scale);
         await onAdopt({ method: "drawn", style: null, signaturePng, initialsPng });
       }
     } catch (err) {
@@ -181,9 +201,17 @@ export function SignaturePad({ name, onAdopt, onCancel }: { name: string; onAdop
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="adopt-title" className="fixed inset-0 z-50 flex items-end justify-center bg-gray-900/50 sm:items-center">
-      <div className="pb-safe w-full max-w-lg rounded-t-[28px] bg-surface p-5 shadow-float sm:rounded-[28px]">
-        <h2 id="adopt-title" className="text-[20px] font-extrabold tracking-[-0.02em] text-gray-900">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="adopt-title"
+      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-gray-900/50 sm:items-center"
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && !busy) onCancel();
+      }}
+    >
+      <div className="pb-safe max-h-[100dvh] w-full max-w-lg overflow-y-auto rounded-t-[28px] bg-surface p-5 shadow-float sm:max-h-[92dvh] sm:rounded-[28px]">
+        <h2 id="adopt-title" ref={headingRef} tabIndex={-1} className="text-[20px] font-extrabold tracking-[-0.02em] text-gray-900 outline-none">
           Your signature
         </h2>
         <p className="mt-1 text-[13px] text-gray-600">Pick a style, or draw it with your finger. It becomes your signature and initials on this agreement.</p>
@@ -205,6 +233,11 @@ export function SignaturePad({ name, onAdopt, onCancel }: { name: string; onAdop
 
         {tab === "type" ? (
           <div className="mt-4 space-y-2" role="radiogroup" aria-label="Signature style">
+            {!ready && (
+              <p role="status" className="text-[12px] text-gray-500">
+                Loading signature styles...
+              </p>
+            )}
             {SIGNATURE_STYLES.map((s) => (
               <button
                 key={s.key}
@@ -217,10 +250,10 @@ export function SignaturePad({ name, onAdopt, onCancel }: { name: string; onAdop
                   style === s.key ? "border-accent ring-2 ring-tint" : "border-paper-line",
                 )}
               >
-                <span className={cn(s.className, "min-w-0 truncate leading-none")} style={{ fontSize: Math.round(34 * s.scale) }}>
+                <span className={cn(s.className, "min-w-0 truncate leading-none")} style={{ fontSize: Math.round(34 * s.scale), fontWeight: s.weight }}>
                   {ready ? name : " "}
                 </span>
-                <span className={cn(s.className, "shrink-0 rounded-lg border border-paper-line px-2 py-1 leading-none")} style={{ fontSize: Math.round(22 * s.scale) }}>
+                <span className={cn(s.className, "shrink-0 rounded-lg border border-paper-line px-2 py-1 leading-none")} style={{ fontSize: Math.round(22 * s.scale), fontWeight: s.weight }}>
                   {ready ? initials : " "}
                 </span>
               </button>
@@ -233,15 +266,17 @@ export function SignaturePad({ name, onAdopt, onCancel }: { name: string; onAdop
           </div>
         )}
 
-        {error && <p className="mt-3 text-[13px] font-medium text-red-700">{error}</p>}
-        <p className="mt-4 text-[12px] leading-snug text-gray-500">
-          By tapping Adopt and continue, I agree that this is my electronic signature and initials, with the same legal effect as my handwriting.
-        </p>
+        {error && (
+          <p role="alert" className="mt-3 text-[13px] font-medium text-red-700">
+            {error}
+          </p>
+        )}
+        <p className="mt-4 text-[12px] leading-snug text-gray-500">{statement}</p>
         <div className="mt-3 flex gap-2">
           <Button type="button" variant="secondary" className="flex-1 rounded-2xl" onClick={onCancel} disabled={busy}>
             Cancel
           </Button>
-          <Button type="button" className="flex-[2] rounded-2xl" onClick={adopt} disabled={busy || !ready || (tab === "draw" && !hasSig)}>
+          <Button type="button" className="flex-[2] rounded-2xl" onClick={adopt} disabled={busy || (tab === "type" && !ready) || (tab === "draw" && !hasSig)}>
             {busy ? "Saving..." : "Adopt and continue"}
           </Button>
         </div>

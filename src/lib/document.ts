@@ -15,6 +15,9 @@ export type FrozenDocument = {
   intro: string[];
   sections: Section[];
   acknowledgment: string[];
+  /** The consent checkbox text and the adoption line, as shown to the signer. */
+  consent: string;
+  adoption: string;
   company: { name: string; address: string; ownerName: string; ownerTitle: string };
 };
 
@@ -33,6 +36,8 @@ export function freezeDocument(company: FrozenDocument["company"], template: Nda
     intro: template.intro.map(fill),
     sections: template.sections.map((s) => ({ key: s.key, heading: s.heading, paragraphs: s.paragraphs.map(fill), initial: s.initial })),
     acknowledgment: template.acknowledgment.map(fill),
+    consent: fill(template.consent),
+    adoption: fill(template.adoption),
     company,
   };
 }
@@ -64,6 +69,13 @@ export function initialSections(doc: FrozenDocument): Section[] {
 export function canonicalAgreement(doc: FrozenDocument, fill: Fill, extra: Record<string, string>): string {
   const filled = filledDocument(doc, fill);
   return stableStringify({ agreement: filled, ...extra });
+}
+
+/** One spelling of an instant (milliseconds, Z), whatever clock or database wrote it, so a hash can be recomputed later. */
+export function normalizeIso(value: string | Date): string {
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) throw new Error("bad_instant");
+  return d.toISOString();
 }
 
 export function stableStringify(value: unknown): string {
@@ -99,6 +111,8 @@ export function parseFrozenDocument(value: unknown): FrozenDocument | null {
     intro: v.intro,
     sections,
     acknowledgment: v.acknowledgment,
+    consent: str(v.consent),
+    adoption: str(v.adoption),
     company: { name: str(c.name), address: str(c.address), ownerName: str(c.ownerName), ownerTitle: str(c.ownerTitle) },
   };
 }

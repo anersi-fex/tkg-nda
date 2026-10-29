@@ -43,23 +43,31 @@ export function passwordIsRight(supplied: string): boolean {
 }
 
 // Login throttle: a per-instance map plus a shared per-address count in login_attempts (holds
-// across serverless instances), and a high flood cap across every address.
+// across serverless instances). A flood cap across every address only stops the table from
+// growing; it never refuses a right password, so strangers cannot lock the owner out.
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_PER_IP = 10;
 const MAX_GLOBAL = 500;
 const failures = new Map<string, { count: number; resetAt: number }>();
 
+const since = () => new Date(Date.now() - WINDOW_MS).toISOString();
+
 export async function loginThrottled(ip: string): Promise<boolean> {
   const entry = failures.get(ip);
   if (entry && entry.resetAt >= Date.now() && entry.count >= MAX_PER_IP) return true;
   try {
-    const since = new Date(Date.now() - WINDOW_MS).toISOString();
-    const recent = () => db().from("login_attempts").select("id", { count: "exact", head: true }).gte("at", since);
-    const mine = await recent().eq("ip", ip.slice(0, 64));
-    if (!mine.error && mine.count != null && mine.count >= MAX_PER_IP) return true;
-    const all = await recent();
-    if (all.error || all.count == null) return false;
-    return all.count >= MAX_GLOBAL;
+    const mine = await db().from("login_attempts").select("id", { count: "exact", head: true }).gte("at", since()).eq("ip", ip.slice(0, 64));
+    return !mine.error && mine.count != null && mine.count >= MAX_PER_IP;
+  } catch {
+    return false;
+  }
+}
+
+/** True while the whole table is being flooded: wrong passwords are refused without a new row. */
+export async function loginFlooded(): Promise<boolean> {
+  try {
+    const all = await db().from("login_attempts").select("id", { count: "exact", head: true }).gte("at", since());
+    return !all.error && all.count != null && all.count >= MAX_GLOBAL;
   } catch {
     return false;
   }

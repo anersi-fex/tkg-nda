@@ -1,13 +1,29 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState, useTransition } from "react";
 import { createNda, type FormState } from "../actions";
 import { Button, Input, Label, Notice } from "@/components/ui";
 
+/** Submits through onSubmit + FormData (never a form action prop): React 19 would wipe the fields after a validation error. */
 export function NewForm() {
-  const [state, action, pending] = useActionState<FormState, FormData>(createNda, { error: null });
+  const [pending, start] = useTransition();
+  const [state, setState] = useState<FormState>({ error: null });
   return (
-    <form action={action} className="space-y-4">
+    <form
+      className="space-y-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const data = new FormData(e.currentTarget);
+        start(async () => {
+          try {
+            setState(await createNda({ error: null }, data)); // redirects on success
+          } catch (err) {
+            if (err && typeof err === "object" && "digest" in err && String((err as { digest?: string }).digest).startsWith("NEXT_REDIRECT")) throw err;
+            setState({ error: "You were signed out, or the server is unavailable. Reload and try again." });
+          }
+        });
+      }}
+    >
       {state.error && <Notice tone="red">{state.error}</Notice>}
       <div>
         <Label htmlFor="name">Who is signing? (optional)</Label>

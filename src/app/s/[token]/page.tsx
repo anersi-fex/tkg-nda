@@ -13,8 +13,9 @@ import { SignView } from "./sign-view";
  */
 export const metadata: Metadata = { title: "Sign", robots: { index: false, follow: false }, referrer: "no-referrer" };
 
-export default async function SignPage({ params }: PageProps<"/s/[token]">) {
+export default async function SignPage({ params, searchParams }: PageProps<"/s/[token]">) {
   const { token } = await params;
+  const q = await searchParams;
   if (!tokenLooksValid(token)) notFound();
   let env;
   try {
@@ -36,6 +37,7 @@ export default async function SignPage({ params }: PageProps<"/s/[token]">) {
         status={status}
         doc={env.doc}
         today={formatLongDate(new Date())}
+        handover={q.h === "1"}
         signer={{
           nameHint: env.signer_name_hint ?? "",
           emailHint: env.signer_email_hint ?? "",
@@ -49,7 +51,7 @@ export default async function SignPage({ params }: PageProps<"/s/[token]">) {
         completedAt={env.completed_at}
         emailConfigured={emailConfigured()}
       />
-      <footer className="flex items-center justify-center gap-2 py-6 text-[12px] text-gray-500">
+      <footer className="flex items-center justify-center gap-2 pt-2 pb-8 text-[12px] text-gray-500">
         Signed with <InkLockup size={18} />
       </footer>
     </main>

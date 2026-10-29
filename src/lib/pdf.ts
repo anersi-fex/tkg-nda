@@ -282,9 +282,17 @@ export async function renderAgreementPdf(input: PdfInput): Promise<Uint8Array> {
   kv("Time zone", "Times are shown in Eastern Time (America/Detroit). Each event also carries its exact UTC time.");
   w.gap(8);
   w.text(
-    "How this was signed: the signer opened a private link made for them, typed their legal name, agreed to sign electronically, adopted a signature and initials, tapped to initial each marked section and tapped to sign. For every tap the server recorded the exact time, the network (IP) address the tap came from, the approximate location of that address and the device and browser used. The agreement text was fixed when the link was issued and its SHA-256 fingerprint is printed above.",
-    { size: 9, leading: 12.5, color: MUTED, after: 10 },
+    "How this was signed: a private link made for the signer was opened, the signer typed their legal name, agreed to sign electronically, adopted a signature and initials, tapped to initial each marked section and tapped to sign. For every tap the server recorded the exact time, the network (IP) address the tap came from, an approximate location estimated from that address and the device and browser the browser reported. The agreement text was fixed when the link was issued and its SHA-256 fingerprint is printed above.",
+    { size: 9, leading: 12.5, color: MUTED, after: 8 },
   );
+  if (input.doc.consent) {
+    w.text("Consent shown and agreed to before signing:", { font: fonts.bold, size: 9, leading: 12.5, color: MUTED });
+    w.text(input.doc.consent, { font: fonts.italic, size: 8.5, leading: 11.5, color: MUTED, after: 6 });
+  }
+  if (input.doc.adoption) {
+    w.text("Statement shown when the signature was adopted:", { font: fonts.bold, size: 9, leading: 12.5, color: MUTED });
+    w.text(input.doc.adoption, { font: fonts.italic, size: 8.5, leading: 11.5, color: MUTED, after: 10 });
+  }
   w.text("Timeline", { font: fonts.bold, size: 11.5, leading: 15, after: 4 });
   for (const e of input.events) {
     w.ensure(42);

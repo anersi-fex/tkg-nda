@@ -2,7 +2,7 @@
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { clearLoginFailures, loginThrottled, passwordIsRight, recordLoginFailure } from "@/lib/auth";
+import { clearLoginFailures, loginFlooded, loginThrottled, passwordIsRight, recordLoginFailure } from "@/lib/auth";
 import { createSessionToken, ownerPassword, SESSION_COOKIE, SESSION_TTL_SECONDS } from "@/lib/session";
 import { safeNextPath } from "@/lib/safe-next";
 import { clientIp } from "@/lib/request-info";
@@ -16,7 +16,7 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
   if (await loginThrottled(ip)) return { error: "Too many tries. Wait 15 minutes and try again." };
   if (!ownerPassword()) return { error: "The app has no password yet. Add OWNER_PASSWORD in Vercel (see SETUP.md)." };
   if (!passwordIsRight(password)) {
-    await recordLoginFailure(ip);
+    if (!(await loginFlooded())) await recordLoginFailure(ip);
     return { error: "That password isn't right." };
   }
   await clearLoginFailures(ip);

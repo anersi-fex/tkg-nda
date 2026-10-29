@@ -30,10 +30,15 @@ export async function createNda(_prev: FormState, form: FormData): Promise<FormS
   try {
     const env = await createEnvelope({ doc, signerNameHint: nameHint, signerEmailHint: emailHint, note: note || null, issuedBy: settings.ownerName });
     id = env.id;
-    await addEvent(env.id, "issued", requestInfo(await headers()), { details: { by: settings.ownerName, company: settings.companyName } });
   } catch (err) {
     console.error(`create_nda_failed ${err instanceof Error ? err.message : "error"}`);
     return { error: "Couldn't save it. Is the database set up? (SETUP.md step 3)" };
+  }
+  try {
+    await addEvent(id, "issued", requestInfo(await headers()), { details: { by: settings.ownerName, company: settings.companyName } });
+  } catch (err) {
+    // The envelope exists: show it rather than let the owner make a second one.
+    console.error(`issued_event_failed envelope=${id} ${err instanceof Error ? err.message : "error"}`);
   }
   revalidatePath("/");
   redirect(`/nda/${id}?new=1`);

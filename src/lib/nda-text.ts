@@ -18,17 +18,19 @@ export type NdaTemplate = {
   version: string;
   title: string;
   intro: string[];
-  sections: Array<{
-    key: string;
-    heading: string;
-    paragraphs: string[];
-    initial: boolean;
-  }>;
+  sections: Array<{ key: string; heading: string; paragraphs: string[]; initial: boolean }>;
   acknowledgment: string[];
+  /** The checkbox text a signer agrees to before anything else (E-SIGN consent). Frozen and hashed with the agreement. */
+  consent: string;
+  /** The line under the signature pad when a signature is adopted. Frozen and hashed with the agreement. */
+  adoption: string;
 };
 
 export const NDA_TEMPLATE: NdaTemplate = {
-  version: "2026-10-29.1",
+  version: "2026-10-29.2",
+  consent:
+    "I agree to sign this Agreement electronically and to receive my copy electronically. My typed name, the signature and initials I adopt, and each tap I make to initial, agree or sign are my signature. I understand that the time of each tap, the network (IP) address it came from, an approximate location for that address and my device and browser are recorded. I can ask {{OWNER_NAME}} for a paper copy at any time at no charge.",
+  adoption: "By tapping Adopt and continue, I agree that the signature and initials shown are my electronic signature and initials, with the same legal effect as my handwriting, and that they need not look like my handwriting.",
   title: "Visitor Non-Disclosure Agreement",
   intro: [
     'This Visitor Non-Disclosure Agreement (the "Agreement") is made on {{EFFECTIVE_DATE}} (the "Effective Date") between {{COMPANY}} (the "Company"), an independent insurance agency in Troy, Michigan, with its office at {{COMPANY_ADDRESS}}, and {{SIGNER_NAME}} ("Recipient"), an individual. The Company and Recipient are each a "Party" and together the "Parties."',

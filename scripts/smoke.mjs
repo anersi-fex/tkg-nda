@@ -7,6 +7,7 @@
 //   OWNER_PASSWORD=owner-pass APP_URL=http://localhost:3000 npm run build && npm start
 //   APP=http://localhost:3000 OWNER_PASSWORD=owner-pass node scripts/smoke.mjs
 import { mkdirSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -119,6 +120,17 @@ try {
   await v.waitForSelector("[role=dialog]");
   await v.waitForSelector("[role=dialog] button:has-text('Adopt and continue'):not([disabled])");
   await v.screenshot({ path: `${OUT}/05-adopt.png` });
+  await v.click("[role=dialog] [role=tab]:has-text('Draw')");
+  const pad = v.locator("[role=dialog] canvas").first();
+  const box = await pad.boundingBox();
+  await v.mouse.move(box.x + 20, box.y + 60);
+  await v.mouse.down();
+  await v.mouse.move(box.x + 120, box.y + 40, { steps: 8 });
+  await v.mouse.up();
+  await v.click("[role=dialog] [role=tab]:has-text('Type')");
+  await v.click("[role=dialog] [role=tab]:has-text('Draw')");
+  check(await v.locator("[role=dialog] button:has-text('Adopt and continue')").isDisabled(), "a drawn signature is forgotten when the pads are switched away and back (button disabled)");
+  await v.click("[role=dialog] [role=tab]:has-text('Type')");
   await v.click("[role=dialog] [role=radio] >> nth=1");
   await v.click("button:has-text('Adopt and continue')");
   await v.waitForSelector("text=Signing as");
@@ -132,6 +144,12 @@ try {
     await v.waitForFunction((n) => document.querySelectorAll("button[aria-label^='Initial here']").length === n, tabCount - i - 1);
   }
   await v.waitForSelector("text=All initialed");
+  check((await v.locator("text=Locked after your first initial").count()) === 1, "name and signature lock after the first initial");
+  const relock = await visitor.request.post(`${APP}/api/sign/${token}/event`, { data: { kind: "adopted", details: { name: "Someone Else", method: "typed", style: "caveat", signaturePng: "data:image/png;base64,iVBORw0KGgo=", initialsPng: "data:image/png;base64,iVBORw0KGgo=" } } });
+  check(relock.status() === 409 || relock.status() === 400, `re-adoption after initialing is refused (${relock.status()})`);
+  for (let i = 0; i < 40; i++) await visitor.request.post(`${APP}/api/sign/${token}/event`, { data: { kind: "opened" } });
+  const stillOk = await visitor.request.post(`${APP}/api/sign/${token}/event`, { data: { kind: "consented" } });
+  check(stillOk.status() === 200, "40 extra 'opened' posts do not block signing (opens are capped)");
   check((await v.locator("img[alt^='Initials of']").count()) === tabCount, "every section carries the initials image");
   await v.screenshot({ path: `${OUT}/06-initialed.png`, fullPage: true });
 
@@ -164,13 +182,23 @@ try {
   check(body.includes("Jordan Q. Example"), "owner sees the signed name");
   check(body.includes("IP 203.0.113.77") && body.includes("Troy, MI, US") && body.includes("iPhone, Safari"), "events carry the visitor's address, location and device");
   check(body.includes("Agreement SHA-256") && body.includes("PDF SHA-256"), "fingerprints shown");
-  const kinds = ["Agreement issued", "opened the agreement", "agreed to sign electronically", "adopted a typed signature", "Signer initialed", "signed the agreement", "completed and sealed", "downloaded the signed copy"];
+  check(body.includes("Agreement sealed"), "record has the sealed event");
+  check((await o.locator("li:has-text('The signing link was opened')").count()) <= 26, "opened events are capped");
+  const kinds = ["Agreement issued", "The signing link was opened", "agreed to sign electronically", "adopted a typed signature", "Signer initialed", "signed the agreement", "Agreement completed", "Agreement sealed", "The signed copy was opened"];
   for (const k of kinds) check(body.includes(k), `record has: ${k}`);
   check((await o.locator("li:has-text('Signer initialed')").count()) === tabCount, `record has ${tabCount} initial events`);
   await o.screenshot({ path: `${OUT}/08-record.png`, fullPage: true });
   const record = await owner.request.get(`${APP}/api/nda/${ndaId}/record`);
   const recordJson = await record.json();
   check(record.status() === 200 && recordJson.events?.length >= 10 && recordJson.agreement?.sections?.length >= 9 && !("token" in (recordJson.envelope ?? {})) && !("signature_png" in (recordJson.envelope ?? {})), "the record exports as JSON without the token or images");
+  const sealedEv = recordJson.events.find((e) => e.kind === "sealed");
+  const completedEv = recordJson.events.find((e) => e.kind === "completed");
+  const signedEv = recordJson.events.find((e) => e.kind === "signed");
+  check(sealedEv?.details?.document_sha256 === recordJson.envelope.document_sha256 && sealedEv?.details?.pdf_sha256 === recordJson.envelope.pdf_sha256, "the sealed event and the envelope agree on both fingerprints");
+  check(signedEv && completedEv && signedEv.at === completedEv.at && new Date(recordJson.envelope.completed_at).getTime() === new Date(signedEv.at).getTime(), "signed, completed and completed_at are one instant");
+  check(typeof recordJson.agreement.consent === "string" && recordJson.agreement.consent.length > 50, "the consent text is part of the frozen agreement");
+  const pdfHash = createHash("sha256").update(pdf).digest("hex");
+  check(pdfHash === recordJson.envelope.pdf_sha256, "the served PDF matches the sealed PDF fingerprint");
   const anonRecord = await (await browser.newContext()).request.get(`${APP}/api/nda/${ndaId}/record`);
   check(anonRecord.status() === 401, "signed out: the record export is 401");
   const draftAfter = await owner.request.get(`${APP}/api/sign/${token}/draft`, { maxRedirects: 0 });

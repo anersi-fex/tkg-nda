@@ -22,7 +22,18 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/nda/[id]/rec
   void _s;
   void _i;
   void _d;
-  const body = JSON.stringify({ exported_at: new Date().toISOString(), envelope: rest, agreement: doc, events }, null, 2);
+  const body = JSON.stringify(
+    {
+      exported_at: new Date().toISOString(),
+      how_to_verify:
+        "agreement_sha256 = SHA-256 of the canonical JSON {agreement: <this agreement with {{SIGNER_NAME}} and {{EFFECTIVE_DATE}} filled>, completed_at: <envelope.completed_at as an ISO instant with milliseconds and Z>, envelope_id, signer_email, template_version}, keys sorted at every level, no spaces (src/lib/document.ts canonicalAgreement, src/lib/signing.ts agreementHash). pdf_sha256 = SHA-256 of the stored PDF bytes. Both are also in the 'sealed' event.",
+      envelope: rest,
+      agreement: doc,
+      events,
+    },
+    null,
+    2,
+  );
   return new Response(body, {
     status: 200,
     headers: {

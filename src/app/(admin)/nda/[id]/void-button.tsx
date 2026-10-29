@@ -19,9 +19,13 @@ export function VoidButton({ id }: { id: string }) {
         onClick={() => {
           if (!window.confirm("Void this agreement? The link stops working. This can't be undone.")) return;
           start(async () => {
-            const r = await voidNda(id);
-            setResult(r);
-            if (r.ok) router.refresh();
+            try {
+              const r = await voidNda(id);
+              setResult(r);
+              if (r.ok) router.refresh();
+            } catch {
+              setResult({ ok: false, error: "You were signed out, or the server is unavailable. Reload and try again." });
+            }
           });
         }}
       >

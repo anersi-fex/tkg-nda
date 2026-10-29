@@ -15,7 +15,13 @@ export function SettingsForm({ settings, emailConfigured }: { settings: AppSetti
       onSubmit={(e) => {
         e.preventDefault();
         const data = new FormData(e.currentTarget);
-        start(async () => setState(await saveAppSettings({ error: null }, data)));
+        start(async () => {
+          try {
+            setState(await saveAppSettings({ error: null }, data));
+          } catch {
+            setState({ error: "You were signed out, or the server is unavailable. Reload and try again." });
+          }
+        });
       }}
     >
       {state.error && <Notice tone="red">{state.error}</Notice>}

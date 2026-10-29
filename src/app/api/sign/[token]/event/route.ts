@@ -1,25 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { cleanEmail, cleanLegalName, initialSections } from "@/lib/document";
-import { addEvent, countEvents, envelopeByToken, listEvents, markOpened, MAX_EVENTS, saveAdoption, shownStatus } from "@/lib/envelopes";
+import { addEvent, addEventOnce, countEvents, envelopeByToken, findEvent, markOpened, MAX_ADOPTIONS, MAX_OPENS, saveAdoption, shownStatus } from "@/lib/envelopes";
 import { CLIENT_EVENT_KINDS, type EventKind } from "@/lib/events";
+import { MAX_INITIALS, MAX_SIGNATURE, pngFits, pngInfo } from "@/lib/png";
 import { requestInfo } from "@/lib/request-info";
-import { tokenLooksValid } from "@/lib/tokens";
+import { sha256Hex, tokenLooksValid } from "@/lib/tokens";
+import { formatLongDate } from "@/lib/timezone";
 
 /**
  * One tap, one row. The signer's browser reports what happened (opened, consented, adopted,
  * initialed) and the server stamps when, from which address, where and on what device. The body
- * is never trusted beyond the few fields each kind allows.
+ * is never trusted beyond the few fields each kind allows. Each kind is bounded: opens are capped,
+ * consent and each initial happen once (unique indexes), adoption is locked after the first
+ * initial, so no holder of the link can fill or freeze the record.
  */
-const PNG_PREFIX = "data:image/png;base64,";
-const PNG_MAX_CHARS = 400_000;
-const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-
-function validPng(value: unknown): value is string {
-  if (typeof value !== "string" || !value.startsWith(PNG_PREFIX) || value.length > PNG_MAX_CHARS || value.length < PNG_PREFIX.length + 100) return false;
-  const head = Buffer.from(value.slice(PNG_PREFIX.length, PNG_PREFIX.length + 16), "base64");
-  return PNG_MAGIC.every((b, i) => head[i] === b);
-}
-
 const shortString = (v: unknown, max: number): string | undefined => (typeof v === "string" && v.length > 0 ? v.replace(/[\u0000-\u001f\u007f]/g, "").slice(0, max) : undefined);
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
@@ -42,20 +36,21 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/sign/[token
   if (!body || !kind || !CLIENT_EVENT_KINDS.includes(kind)) return json(400, { error: "bad_kind" });
   const details = (body.details && typeof body.details === "object" ? body.details : {}) as Record<string, unknown>;
   const info = requestInfo(req.headers);
-  if ((await countEvents(env.id)) >= MAX_EVENTS) return json(429, { error: "too_many_events" });
 
   try {
     switch (kind) {
       case "opened": {
-        const ev = await addEvent(env.id, "opened", info, { details: { tz: shortString(details.tz, 60), screen: shortString(details.screen, 30) } });
+        // Reloads and link previews are many; the record keeps the first MAX_OPENS and the status flip.
+        if ((await countEvents(env.id, "opened")) >= MAX_OPENS) return json(200, { ok: true, at: null });
+        const ev = await addEvent(env.id, "opened", info, {
+          details: { tz: shortString(details.tz, 60), screen: shortString(details.screen, 30), shown_effective_date: formatLongDate(new Date()), handover: details.handover === true ? true : undefined },
+        });
         await markOpened(env.id);
         return json(200, { ok: true, at: ev.at });
       }
       case "consented": {
-        const existing = (await listEvents(env.id)).find((e) => e.kind === "consented");
-        if (existing) return json(200, { ok: true, at: existing.at });
-        const ev = await addEvent(env.id, "consented", info, { details: { tz: shortString(details.tz, 60) } });
-        return json(200, { ok: true, at: ev.at });
+        const { event } = await addEventOnce(env.id, "consented", info, { details: { tz: shortString(details.tz, 60), consent_sha256: sha256Hex(env.doc.consent) } });
+        return json(200, { ok: true, at: event.at });
       }
       case "adopted": {
         const name = cleanLegalName(details.name);
@@ -64,28 +59,42 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/sign/[token
         if (email === undefined) return json(400, { error: "bad_email" });
         const method = details.method === "drawn" ? "drawn" : details.method === "typed" ? "typed" : null;
         if (!method) return json(400, { error: "bad_method" });
-        const style = method === "typed" ? shortString(details.style, 40) ?? null : null;
-        if (!validPng(details.signaturePng) || !validPng(details.initialsPng)) return json(400, { error: "bad_image" });
-        const events = await listEvents(env.id);
-        if (!events.some((e) => e.kind === "consented")) return json(409, { error: "not_consented" });
-        const saved = await saveAdoption(env.id, { signerName: name, signerEmail: email, method, style, signaturePng: details.signaturePng, initialsPng: details.initialsPng });
+        const style = method === "typed" ? (shortString(details.style, 40) ?? null) : null;
+        const signature = pngInfo(details.signaturePng);
+        const initials = pngInfo(details.initialsPng);
+        if (!pngFits(signature, MAX_SIGNATURE) || !pngFits(initials, MAX_INITIALS)) return json(400, { error: "bad_image" });
+        if (!(await findEvent(env.id, "consented"))) return json(409, { error: "not_consented" });
+        // After the first initial the name and the images are part of what was initialed: locked.
+        if ((await countEvents(env.id, "initialed")) > 0) return json(409, { error: "locked" });
+        if ((await countEvents(env.id, "adopted")) >= MAX_ADOPTIONS) return json(409, { error: "too_many_adoptions" });
+        const signaturePng = details.signaturePng as string;
+        const initialsPng = details.initialsPng as string;
+        const saved = await saveAdoption(env.id, { signerName: name, signerEmail: email, method, style, signaturePng, initialsPng });
         if (!saved) return json(409, { error: "changed" });
-        const ev = await addEvent(env.id, "adopted", info, { details: { name, email: email ?? undefined, method, style: style ?? undefined } });
+        const ev = await addEvent(env.id, "adopted", info, {
+          details: {
+            name,
+            email: email ?? undefined,
+            method,
+            style: style ?? undefined,
+            signature_sha256: sha256Hex(signaturePng),
+            initials_sha256: sha256Hex(initialsPng),
+            adoption_sha256: sha256Hex(env.doc.adoption),
+          },
+        });
         return json(200, { ok: true, at: ev.at });
       }
       case "initialed": {
         const key = shortString(body.section, 60);
         if (!key || !initialSections(env.doc).some((s) => s.key === key)) return json(400, { error: "bad_section" });
-        if (!env.signature_png || !env.signer_name) return json(409, { error: "not_adopted" });
-        const existing = (await listEvents(env.id)).find((e) => e.kind === "initialed" && e.section_key === key);
-        if (existing) return json(200, { ok: true, at: existing.at });
-        const ev = await addEvent(env.id, "initialed", info, { sectionKey: key, details: { name: env.signer_name } });
-        return json(200, { ok: true, at: ev.at });
+        if (!env.signature_png || !env.initials_png || !env.signer_name) return json(409, { error: "not_adopted" });
+        const { event } = await addEventOnce(env.id, "initialed", info, { sectionKey: key, details: { name: env.signer_name, initials_sha256: sha256Hex(env.initials_png) } });
+        return json(200, { ok: true, at: event.at });
       }
     }
   } catch (err) {
-    console.error(`event_failed envelope=${env.id} kind=${kind} ${err instanceof Error ? err.name : "error"}`);
-    return json(500, { error: "failed" });
+    console.error(`event_failed envelope=${env.id} kind=${kind} ${err instanceof Error ? err.message : "error"}`);
+    return json(503, { error: "database" });
   }
   return json(400, { error: "bad_kind" });
 }

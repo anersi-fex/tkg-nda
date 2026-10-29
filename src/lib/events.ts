@@ -1,5 +1,5 @@
 /** Event kinds in the audit trail and their plain-English labels. Pure, browser-safe. */
-export const EVENT_KINDS = ["issued", "opened", "consented", "adopted", "initialed", "signed", "completed", "viewed_pdf", "voided", "copy_sent", "copy_failed"] as const;
+export const EVENT_KINDS = ["issued", "opened", "consented", "adopted", "initialed", "signed", "completed", "sealed", "viewed_pdf", "voided", "copy_sent", "copy_failed"] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
 /** The kinds a signer's browser may report. Everything else is written by the server itself. */
@@ -16,12 +16,13 @@ export type AuditEvent = {
   details: Record<string, unknown> | null;
 };
 
+/** Labels say what is known: a link can be opened by anyone holding it, so "opened" is not "the signer opened". */
 export function eventLabel(e: { kind: EventKind; section_key?: string | null; details?: Record<string, unknown> | null }, sectionHeading?: string): string {
   switch (e.kind) {
     case "issued":
       return "Agreement issued by the Company";
     case "opened":
-      return "Signer opened the agreement";
+      return e.details?.handover === true ? "The signing link was opened on the Company's device (handed over)" : "The signing link was opened";
     case "consented":
       return "Signer agreed to sign electronically";
     case "adopted": {
@@ -33,9 +34,11 @@ export function eventLabel(e: { kind: EventKind; section_key?: string | null; de
     case "signed":
       return "Signer signed the agreement";
     case "completed":
-      return "Agreement completed and sealed (PDF made)";
+      return "Agreement completed";
+    case "sealed":
+      return "Agreement sealed: PDF stored, fingerprints recorded";
     case "viewed_pdf":
-      return "Signer downloaded the signed copy";
+      return "The signed copy was opened from the signing link";
     case "voided":
       return "Agreement voided by the Company";
     case "copy_sent":

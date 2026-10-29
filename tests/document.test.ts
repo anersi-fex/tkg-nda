@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canonicalAgreement, cleanEmail, cleanLegalName, fillText, filledDocument, freezeDocument, initialSections, initialsOf, parseFrozenDocument, stableStringify } from "../src/lib/document";
+import { canonicalAgreement, cleanEmail, cleanLegalName, fillText, filledDocument, freezeDocument, initialSections, initialsOf, normalizeIso, parseFrozenDocument, stableStringify } from "../src/lib/document";
 import { NDA_TEMPLATE } from "../src/lib/nda-text";
 
 const company = { name: "The Koka Group, LLC", address: "Troy, Michigan", ownerName: "Anersi Koka", ownerTitle: "Owner" };
@@ -72,4 +72,27 @@ test("initialsOf, cleanLegalName, cleanEmail", () => {
   assert.equal(cleanEmail(" Jane@Example.com "), "jane@example.com");
   assert.equal(cleanEmail("nope"), undefined);
   assert.equal(cleanEmail(5), undefined);
+});
+
+test("the consent and adoption statements are frozen with the agreement and change its hash", () => {
+  const doc = freezeDocument(company);
+  assert.ok(doc.consent.includes("Anersi Koka") && !doc.consent.includes("{{"));
+  assert.ok(doc.adoption.length > 40);
+  const fill = { signerName: "Jane Doe", effectiveDate: "October 29, 2026" };
+  const a = canonicalAgreement(doc, fill, {});
+  const b = canonicalAgreement({ ...doc, consent: doc.consent + " " }, fill, {});
+  assert.notEqual(a, b);
+  const back = parseFrozenDocument(JSON.parse(JSON.stringify(doc)));
+  assert.equal(back?.consent, doc.consent);
+  // An older frozen document without the two statements still parses (as empty strings).
+  const older = parseFrozenDocument({ ...JSON.parse(JSON.stringify(doc)), consent: undefined, adoption: undefined });
+  assert.equal(older?.consent, "");
+});
+
+test("normalizeIso gives one spelling for the same instant, as the app and the database write it", () => {
+  assert.equal(normalizeIso("2026-10-29T00:31:51.768Z"), "2026-10-29T00:31:51.768Z");
+  assert.equal(normalizeIso("2026-10-29T00:31:51.768+00:00"), "2026-10-29T00:31:51.768Z");
+  assert.equal(normalizeIso("2026-10-28T20:31:51.768-04:00"), "2026-10-29T00:31:51.768Z");
+  assert.equal(normalizeIso("2026-10-29T00:31:51.768123+00:00"), "2026-10-29T00:31:51.768Z", "microseconds are cut, as JS Date does");
+  assert.throws(() => normalizeIso("yesterday"));
 });

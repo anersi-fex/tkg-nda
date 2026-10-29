@@ -1,6 +1,6 @@
 import "server-only";
-import { canonicalAgreement, filledDocument } from "./document";
-import { addEvent, listEvents, loadPdf, saveHashes, storePdf, type Envelope } from "./envelopes";
+import { canonicalAgreement, filledDocument, normalizeIso } from "./document";
+import { addEventOnce, listEvents, loadPdf, saveHashes, storePdf, type Envelope } from "./envelopes";
 import type { AuditEvent } from "./events";
 import { renderAgreementPdf } from "./pdf";
 import { sha256Hex } from "./tokens";
@@ -8,25 +8,28 @@ import { formatLongDate } from "./timezone";
 
 /**
  * Sealing a completed agreement: the SHA-256 of what was agreed, the PDF, and its SHA-256.
- * The PDF is built from the events up to and including "completed", so building it again later
- * (if the first attempt failed) gives the same bytes and the same fingerprint.
+ * Every input is taken from the stored row and the events up to "completed", and every instant
+ * is normalized to one spelling, so the seal can be rebuilt and checked later from the record
+ * alone. The first stored PDF is the only copy: a rebuild never replaces it.
  */
 export function agreementHash(env: Envelope, completedAt: string): string {
-  const fill = { signerName: env.signer_name ?? "", effectiveDate: formatLongDate(completedAt) };
+  const at = normalizeIso(completedAt);
+  const fill = { signerName: env.signer_name ?? "", effectiveDate: formatLongDate(at) };
   return sha256Hex(
     canonicalAgreement(env.doc, fill, {
       envelope_id: env.id,
       signer_email: env.signer_email ?? "",
-      completed_at: completedAt,
+      completed_at: at,
       template_version: env.template_version,
     }),
   );
 }
 
 export async function buildPdf(env: Envelope, events: AuditEvent[], completedAt: string, documentSha256: string): Promise<{ pdf: Uint8Array; sha256: string }> {
+  const at = normalizeIso(completedAt);
   const completedIdx = events.findIndex((e) => e.kind === "completed");
   const upTo = completedIdx === -1 ? events : events.slice(0, completedIdx + 1);
-  const fill = { signerName: env.signer_name ?? "", effectiveDate: formatLongDate(completedAt) };
+  const fill = { signerName: env.signer_name ?? "", effectiveDate: formatLongDate(at) };
   const pdf = await renderAgreementPdf({
     envelopeId: env.id,
     doc: filledDocument(env.doc, fill),
@@ -36,7 +39,7 @@ export async function buildPdf(env: Envelope, events: AuditEvent[], completedAt:
     signaturePng: env.signature_png,
     initialsPng: env.initials_png,
     effectiveDate: fill.effectiveDate,
-    completedAt,
+    completedAt: at,
     issuedAt: env.created_at,
     issuedBy: env.issued_by,
     events: upTo,
@@ -45,34 +48,46 @@ export async function buildPdf(env: Envelope, events: AuditEvent[], completedAt:
   return { pdf, sha256: sha256Hex(pdf) };
 }
 
-/** The stored PDF of a completed agreement, made now if the completion step could not store it. */
-export async function ensurePdf(env: Envelope): Promise<{ pdf: Uint8Array; sha256: string } | null> {
+export type Seal = { pdf: Uint8Array; pdfSha256: string; documentSha256: string };
+
+/**
+ * Builds the PDF, stores it (first store wins), records the 'sealed' event once and copies the
+ * fingerprints onto the envelope. Safe to call twice: the second call returns the first seal.
+ */
+export async function sealEnvelope(env: Envelope): Promise<Seal | null> {
   if (env.status !== "completed" || !env.completed_at) return null;
-  const stored = await loadPdf(env.id);
-  if (stored) return stored;
   const events = await listEvents(env.id);
-  const documentSha256 = env.document_sha256 ?? agreementHash(env, env.completed_at);
-  let built: { pdf: Uint8Array; sha256: string };
-  try {
-    built = await buildPdf(env, events, env.completed_at, documentSha256);
-  } catch (err) {
-    console.error(`pdf_build_failed envelope=${env.id} ${err instanceof Error ? err.name : "error"}`);
-    return null;
-  }
-  try {
+  if (!events.some((e) => e.kind === "completed")) return null; // completion still in flight
+  const sealedBefore = events.find((e) => e.kind === "sealed");
+  const documentSha256 = typeof sealedBefore?.details?.document_sha256 === "string" ? sealedBefore.details.document_sha256 : (env.document_sha256 ?? agreementHash(env, env.completed_at));
+  let stored = await loadPdf(env.id);
+  if (!stored) {
+    const built = await buildPdf(env, events, env.completed_at, documentSha256);
     await storePdf(env.id, built.pdf, built.sha256);
-    await saveHashes(env.id, { documentSha256, pdfSha256: built.sha256 });
-  } catch (err) {
-    console.error(`pdf_store_failed envelope=${env.id} ${err instanceof Error ? err.name : "error"}`);
+    stored = (await loadPdf(env.id)) ?? built;
   }
-  if (!events.some((e) => e.kind === "completed")) {
+  const { event } = await addEventOnce(env.id, "sealed", null, { details: { document_sha256: documentSha256, pdf_sha256: stored.sha256, pdf_bytes: stored.pdf.byteLength } });
+  const sealedDoc = typeof event.details?.document_sha256 === "string" ? event.details.document_sha256 : documentSha256;
+  const sealedPdf = typeof event.details?.pdf_sha256 === "string" ? event.details.pdf_sha256 : stored.sha256;
+  if (env.document_sha256 !== sealedDoc || env.pdf_sha256 !== sealedPdf) {
     try {
-      await addEvent(env.id, "completed", null, { details: { document_sha256: documentSha256, late: true } });
-    } catch {
-      /* the PDF still exists */
+      await saveHashes(env.id, { documentSha256: sealedDoc, pdfSha256: sealedPdf });
+    } catch (err) {
+      console.error(`hashes_save_failed envelope=${env.id} ${err instanceof Error ? err.name : "error"}`);
     }
   }
-  return built;
+  return { pdf: stored.pdf, pdfSha256: stored.sha256, documentSha256: sealedDoc };
+}
+
+/** The stored PDF of a completed agreement, sealed now if the completion step could not finish it. */
+export async function ensurePdf(env: Envelope): Promise<{ pdf: Uint8Array; sha256: string } | null> {
+  try {
+    const seal = await sealEnvelope(env);
+    return seal ? { pdf: seal.pdf, sha256: seal.pdfSha256 } : null;
+  } catch (err) {
+    console.error(`pdf_ensure_failed envelope=${env.id} ${err instanceof Error ? err.name : "error"}`);
+    return null;
+  }
 }
 
 /** "NDA - Jane Doe.pdf": ASCII only, so every browser keeps the name. */
@@ -97,6 +112,12 @@ export function pdfResponse(pdf: Uint8Array, filename: string, download: boolean
       "X-Content-Type-Options": "nosniff",
     },
   });
+}
+
+/** A small page for a phone when the PDF is not ready, instead of raw JSON. */
+export function notReadyResponse(): Response {
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Not ready yet</title></head><body style="font-family:-apple-system,system-ui,sans-serif;padding:40px 24px;text-align:center;color:#15171c"><h1 style="font-size:20px">Your copy isn't ready yet</h1><p style="color:#555b69">Give it a few seconds, then go back and tap the button again.</p></body></html>`;
+  return new Response(html, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Retry-After": "5" } });
 }
 
 /** An unsigned copy of the agreement for reading or printing before signing (no record, no seal). */

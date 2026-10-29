@@ -69,7 +69,7 @@ export default async function NdaPage({ params, searchParams }: PageProps<"/nda/
                 <a href={`sms:?&body=${smsBody}`} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-line bg-surface px-4 text-sm font-bold text-gray-900 shadow-card">
                   Text it
                 </a>
-                <Link href={`/s/${env.token}`} className="col-span-2 inline-flex min-h-11 items-center justify-center rounded-xl bg-tide-strong px-4 text-sm font-bold text-white shadow-glow">
+                <Link href={`/s/${env.token}?h=1`} className="col-span-2 inline-flex min-h-11 items-center justify-center rounded-xl bg-tide-strong px-4 text-sm font-bold text-white shadow-glow">
                   Open it here to hand over the phone
                 </Link>
               </div>
