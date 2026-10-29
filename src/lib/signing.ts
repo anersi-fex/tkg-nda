@@ -98,3 +98,25 @@ export function pdfResponse(pdf: Uint8Array, filename: string, download: boolean
     },
   });
 }
+
+/** An unsigned copy of the agreement for reading or printing before signing (no record, no seal). */
+export async function buildDraftPdf(env: Envelope): Promise<Uint8Array> {
+  const today = new Date();
+  const fill = { signerName: env.signer_name ?? env.signer_name_hint ?? "Recipient", effectiveDate: formatLongDate(today) };
+  return renderAgreementPdf({
+    envelopeId: env.id,
+    doc: filledDocument(env.doc, fill),
+    signerName: fill.signerName,
+    signerEmail: null,
+    signatureMethod: null,
+    signaturePng: null,
+    initialsPng: null,
+    effectiveDate: fill.effectiveDate,
+    completedAt: env.created_at,
+    issuedAt: env.created_at,
+    issuedBy: env.issued_by,
+    events: [],
+    documentSha256: "",
+    draft: true,
+  });
+}

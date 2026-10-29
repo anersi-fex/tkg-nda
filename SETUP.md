@@ -46,7 +46,7 @@ Vercel builds the `main` branch. Right now `main` holds only a one-line README: 
 ## Step 8. The first NDA
 1. Tap **New NDA**, type the person's name, tap **Make the signing link**.
 2. Hand them your phone with **Open it here to hand over the phone**, or let them scan the QR code, or **Text it**.
-3. They type their name, check the box, pick a signature style, tap the 6 gold tabs, and tap **Sign and finish**. About 3 minutes.
+3. They type their name, check the box, pick a signature style, tap the 7 gold tabs, and tap **Sign and finish**. Send the link a day or more ahead so they can read it first.
 4. Back on your phone, the agreement shows **Signed** with **Open PDF** and the record of every step (time, network address, location, device).
 
 That is release 1. Send Claude a screenshot of the first signed record: that is the proof.

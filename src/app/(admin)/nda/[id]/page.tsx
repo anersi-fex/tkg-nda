@@ -32,7 +32,7 @@ export default async function NdaPage({ params, searchParams }: PageProps<"/nda/
   const qr = status === "sent" || status === "opened" ? await QRCode.toString(link, { type: "svg", margin: 1, width: 240, color: { dark: "#15171c", light: "#ffffff" } }) : null;
   const headings = new Map(env.doc.sections.map((x) => [x.key, x.heading]));
   const name = env.signer_name ?? env.signer_name_hint ?? "Unnamed";
-  const smsBody = encodeURIComponent(`Here is the non-disclosure agreement from ${env.doc.company.name} to sign on your phone (about 3 minutes): ${link}`);
+  const smsBody = encodeURIComponent(`Here is the non-disclosure agreement from ${env.doc.company.name}. Please read and sign it on your phone before your visit: ${link}`);
 
   return (
     <>
@@ -73,7 +73,7 @@ export default async function NdaPage({ params, searchParams }: PageProps<"/nda/
                   Open it here to hand over the phone
                 </Link>
               </div>
-              <p className="mt-2 text-[12px] text-gray-500">The link works for 14 days from today, once, for this person.</p>
+              <p className="mt-2 text-[12px] text-gray-500">The link works for 14 days from today, once, for this person. Send it a day or more before the visit so they can read it.</p>
             </div>
           </div>
         </Card>
@@ -98,6 +98,13 @@ export default async function NdaPage({ params, searchParams }: PageProps<"/nda/
               </a>
             </div>
           </div>
+          <p className="mt-3 text-[12px] text-gray-500">
+            Keep the PDF together with{" "}
+            <a href={`/api/nda/${env.id}/record?download=1`} className="font-semibold text-accent-text">
+              the record as a file (JSON)
+            </a>
+            : the agreement text as signed, the hashes and every event.
+          </p>
           {(env.document_sha256 || env.pdf_sha256) && (
             <dl className="mt-3 grid gap-1 border-t border-line pt-3 text-[11.5px]">
               {env.document_sha256 && (

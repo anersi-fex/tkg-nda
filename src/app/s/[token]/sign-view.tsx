@@ -214,9 +214,10 @@ export function SignView(props: Props) {
       <div className="px-1">
         <p className="text-[12px] font-bold tracking-wide text-gray-500 uppercase">{doc.company.name}</p>
         <h1 className="mt-1 text-[26px] leading-tight font-extrabold tracking-[-0.03em] text-gray-900">{doc.title}</h1>
-        <p className="mt-1 text-[14px] text-gray-600">
-          Please read it, tap the {required.length} gold tabs to initial, and sign at the bottom. About 3 minutes.
-        </p>
+        <p className="mt-1 text-[14px] text-gray-600">Please read it, tap the {required.length} gold tabs to initial, and sign at the bottom.</p>
+        <a href={`/api/sign/${token}/draft`} target="_blank" rel="noopener" className="mt-1 inline-block text-[13px] font-semibold text-accent-text">
+          Open an unsigned copy to read, save or print first
+        </a>
       </div>
 
       {/* Step 1: who you are */}

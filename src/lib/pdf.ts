@@ -25,6 +25,8 @@ export type PdfInput = {
   issuedBy: string;
   events: AuditEvent[];
   documentSha256: string;
+  /** An unsigned copy for reading or printing before signing: no initials, no signature, no certificate. */
+  draft?: boolean;
 };
 
 const PAGE_W = 612;
@@ -168,7 +170,12 @@ export async function renderAgreementPdf(input: PdfInput): Promise<Uint8Array> {
   // --- Title block ---
   w.text(input.doc.company.name.toUpperCase(), { font: fonts.bold, size: 9.5, color: MUTED, after: 2 });
   w.text(input.doc.title, { font: fonts.bold, size: 19, leading: 23, after: 4 });
-  w.text(`Effective ${input.effectiveDate}`, { size: 10, color: MUTED, after: 10 });
+  if (input.draft) {
+    w.text("UNSIGNED COPY FOR REVIEW", { font: fonts.bold, size: 10, color: GOLD, after: 2 });
+    w.text("This is the agreement as it will be signed. The signed copy adds the initials, the signature and a certificate of completion.", { size: 9, color: MUTED, after: 8 });
+  } else {
+    w.text(`Effective ${input.effectiveDate}`, { size: 10, color: MUTED, after: 10 });
+  }
   w.rule();
   w.gap(6);
   for (const p of input.doc.intro) w.text(p, { leading: LEADING, after: 7 });
@@ -179,7 +186,10 @@ export async function renderAgreementPdf(input: PdfInput): Promise<Uint8Array> {
     w.gap(6);
     w.text(`${i + 1}. ${s.heading}`, { font: fonts.bold, size: 11.5, leading: 15, after: 3 });
     for (const p of s.paragraphs) w.text(p, { leading: LEADING, after: 6 });
-    if (s.initial) {
+    if (s.initial && input.draft) {
+      w.text("[ Recipient initials here ]", { font: fonts.italic, size: 9, color: GOLD, after: 4 });
+    }
+    if (s.initial && !input.draft) {
       const ev = initialedAt.get(s.key);
       w.ensure(40);
       const boxTop = w.y;
@@ -190,7 +200,7 @@ export async function renderAgreementPdf(input: PdfInput): Promise<Uint8Array> {
         w.page.drawImage(initials, { x: MARGIN + 8, y: boxTop - h + 4, width: initials.width * scale, height: h - 8 });
       }
       const label = ev
-        ? `Initialed by ${input.signerName} on ${formatStamp(ev.at)}${ev.ip ? ` from IP ${ev.ip}` : ""}${geoLabel(ev.geo) ? ` (${geoLabel(ev.geo)})` : ""}`
+        ? `Initialed by ${input.signerName} on ${formatStamp(ev.at)}${ev.ip ? ` from IP ${ev.ip}` : ""}${geoLabel(ev.geo) ? ` (${geoLabel(ev.geo)}, est. from IP)` : ""}`
         : "Not initialed";
       const labelX = MARGIN + 8 + (initials ? (initials.width * (h - 8)) / initials.height + 10 : 0);
       const lines = wrap(fonts.regular, 7.8, label, PAGE_W - MARGIN - labelX - 8);

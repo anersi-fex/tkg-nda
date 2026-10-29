@@ -95,6 +95,10 @@ try {
   check((await v.textContent("h1")).includes("Agreement"), "signing page shows the agreement title");
   check((await v.inputValue("#name")) === "Jordan Example", "the name the owner typed is prefilled");
   await v.screenshot({ path: `${OUT}/04-sign-top.png`, fullPage: false });
+  const draft = await visitor.request.get(`${APP}/api/sign/${token}/draft`);
+  const draftBody = await draft.body();
+  check(draft.status() === 200 && draft.headers()["content-type"] === "application/pdf" && draftBody.subarray(0, 5).toString("latin1") === "%PDF-", `unsigned copy PDF opens (${draftBody.length} bytes)`);
+  writeFileSync(`${OUT}/unsigned.pdf`, draftBody);
   await v.screenshot({ path: `${OUT}/04b-sign-full.png`, fullPage: true });
 
   // Tapping a gold tab before adopting a signature only nudges.
@@ -164,6 +168,13 @@ try {
   for (const k of kinds) check(body.includes(k), `record has: ${k}`);
   check((await o.locator("li:has-text('Signer initialed')").count()) === tabCount, `record has ${tabCount} initial events`);
   await o.screenshot({ path: `${OUT}/08-record.png`, fullPage: true });
+  const record = await owner.request.get(`${APP}/api/nda/${ndaId}/record`);
+  const recordJson = await record.json();
+  check(record.status() === 200 && recordJson.events?.length >= 10 && recordJson.agreement?.sections?.length >= 9 && !("token" in (recordJson.envelope ?? {})) && !("signature_png" in (recordJson.envelope ?? {})), "the record exports as JSON without the token or images");
+  const anonRecord = await (await browser.newContext()).request.get(`${APP}/api/nda/${ndaId}/record`);
+  check(anonRecord.status() === 401, "signed out: the record export is 401");
+  const draftAfter = await owner.request.get(`${APP}/api/sign/${token}/draft`, { maxRedirects: 0 });
+  check(draftAfter.status() === 307 || draftAfter.status() === 308 || draftAfter.status() === 302, "after signing, the unsigned-copy link goes to the signed PDF");
   const ownerPdf = await owner.request.get(`${APP}/api/nda/${ndaId}/pdf`);
   check(ownerPdf.status() === 200 && Buffer.compare(await ownerPdf.body(), pdf) === 0, "the owner's PDF is the same file");
 
