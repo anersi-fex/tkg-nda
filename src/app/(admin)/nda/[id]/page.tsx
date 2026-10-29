@@ -60,7 +60,7 @@ export default async function NdaPage({ params, searchParams }: PageProps<"/nda/
       {qr && (
         <Card className="mt-4">
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-            <div className="shrink-0 rounded-2xl bg-white p-2 shadow-card" style={{ width: 176, height: 176 }} dangerouslySetInnerHTML={{ __html: qr }} aria-label="QR code of the signing link" role="img" />
+            <div className="shrink-0 overflow-hidden rounded-2xl bg-white p-2 shadow-card [&>svg]:h-full [&>svg]:w-full" style={{ width: 176, height: 176 }} dangerouslySetInnerHTML={{ __html: qr }} aria-label="QR code of the signing link" role="img" />
             <div className="min-w-0 flex-1">
               <p className="text-[12px] font-bold tracking-wide text-gray-500 uppercase">Signing link</p>
               <p className="mt-1 font-mono text-[12px] break-all text-gray-700">{link}</p>
