@@ -33,3 +33,20 @@ test("deviceLabel reads common browsers", () => {
   assert.equal(deviceLabel("curl/8.0"), "");
   assert.equal(deviceLabel(null), "");
 });
+
+test("timeline folds repeated opens from one device and keeps everything else", async () => {
+  const { timeline } = await import("../src/lib/events");
+  const base = { section_key: null, ip: "203.0.113.9", user_agent: "ua", geo: null, details: null };
+  const ev = (id: number, kind: "opened" | "consented" | "issued", at: string, ip = "203.0.113.9") => ({ id, kind, at, ...base, ip }) as import("../src/lib/events").AuditEvent;
+  const items = timeline([ev(1, "issued", "t1"), ev(2, "opened", "t2"), ev(3, "opened", "t3"), ev(4, "opened", "t4"), ev(5, "consented", "t5"), ev(6, "opened", "t6"), ev(7, "opened", "t7", "198.51.100.1")]);
+  assert.deepEqual(
+    items.map((i) => [i.event.id, i.repeats, i.lastAt]),
+    [
+      [1, 0, "t1"],
+      [2, 2, "t4"],
+      [5, 0, "t5"],
+      [6, 0, "t6"],
+      [7, 0, "t7"],
+    ],
+  );
+});

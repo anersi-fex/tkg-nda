@@ -5,7 +5,7 @@ import { CopyButton } from "@/components/copy-button";
 import { Badge, Card, Notice } from "@/components/ui";
 import { appBase } from "@/lib/app-url";
 import { envelopeById, listEvents, shownStatus, type ShownStatus } from "@/lib/envelopes";
-import { eventLabel } from "@/lib/events";
+import { eventLabel, timeline } from "@/lib/events";
 import { deviceLabel, geoLabel } from "@/lib/request-info";
 import { formatStamp } from "@/lib/timezone";
 import { VoidButton } from "./void-button";
@@ -127,13 +127,14 @@ export default async function NdaPage({ params, searchParams }: PageProps<"/nda/
       <section className="mt-6">
         <h2 className="mb-2 px-1 text-[13px] font-bold tracking-wide text-gray-500 uppercase">Record of every step</h2>
         <ol className="divide-y divide-line overflow-hidden rounded-[22px] bg-surface shadow-card">
-          {events.map((e) => {
+          {timeline(events).map(({ event: e, repeats, lastAt }) => {
             const where = [e.ip ? `IP ${e.ip}` : "", geoLabel(e.geo), deviceLabel(e.user_agent)].filter(Boolean).join(" · ");
             return (
               <li key={e.id} className="px-4 py-3">
                 <p className="text-[14px] font-bold text-gray-900">{eventLabel(e, e.section_key ? headings.get(e.section_key) : undefined)}</p>
                 <p className="font-mono text-[12px] text-gray-600">{formatStamp(e.at)}</p>
                 {where && <p className="text-[12px] text-gray-500">{where}</p>}
+                {repeats > 0 && <p className="text-[12px] text-gray-500">Opened again {repeats} more {repeats === 1 ? "time" : "times"} from the same device, last {formatStamp(lastAt)}</p>}
               </li>
             );
           })}

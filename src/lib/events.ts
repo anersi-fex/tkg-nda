@@ -47,3 +47,24 @@ export function eventLabel(e: { kind: EventKind; section_key?: string | null; de
       return "Email of the signed copy failed";
   }
 }
+
+/** A timeline row: an event, or a run of repeated opens folded into one line. */
+export type TimelineItem = { event: AuditEvent; repeats: number; lastAt: string };
+
+/**
+ * The record keeps every open, but reading it should not: a run of "opened" rows after the first
+ * one folds into "opened again N more times (last ...)". Every other kind stays one row each.
+ */
+export function timeline(events: AuditEvent[]): TimelineItem[] {
+  const out: TimelineItem[] = [];
+  for (const e of events) {
+    const prev = out[out.length - 1];
+    if (e.kind === "opened" && prev && prev.event.kind === "opened" && prev.event.ip === e.ip && prev.event.user_agent === e.user_agent) {
+      prev.repeats += 1;
+      prev.lastAt = e.at;
+      continue;
+    }
+    out.push({ event: e, repeats: 0, lastAt: e.at });
+  }
+  return out;
+}

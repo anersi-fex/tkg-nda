@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import type { FrozenDocument } from "./document";
-import { eventLabel, type AuditEvent } from "./events";
+import { eventLabel, timeline, type AuditEvent } from "./events";
 import { deviceLabel, geoLabel } from "./request-info";
 import { formatStamp } from "./timezone";
 
@@ -294,13 +294,14 @@ export async function renderAgreementPdf(input: PdfInput): Promise<Uint8Array> {
     w.text(input.doc.adoption, { font: fonts.italic, size: 8.5, leading: 11.5, color: MUTED, after: 10 });
   }
   w.text("Timeline", { font: fonts.bold, size: 11.5, leading: 15, after: 4 });
-  for (const e of input.events) {
+  for (const { event: e, repeats, lastAt } of timeline(input.events)) {
     w.ensure(42);
     const label = eventLabel(e, e.section_key ? headings.get(e.section_key) : undefined);
     w.text(label, { font: fonts.bold, size: 9.5, leading: 12.5 });
     w.text(`${formatStamp(e.at)}  (${new Date(e.at).toISOString()})`, { size: 8.5, leading: 11, color: MUTED });
     const where = eventWhere(e);
     if (where) w.text(where, { size: 8.5, leading: 11, color: MUTED });
+    if (repeats > 0) w.text(`Opened again ${repeats} more ${repeats === 1 ? "time" : "times"} from the same device, last ${formatStamp(lastAt)} (${new Date(lastAt).toISOString()})`, { size: 8.5, leading: 11, color: MUTED });
     const d = e.details ?? {};
     const extras: string[] = [];
     if (typeof d.tz === "string") extras.push(`browser time zone ${d.tz}`);
