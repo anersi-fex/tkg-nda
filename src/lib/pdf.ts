@@ -137,8 +137,10 @@ async function embedDataUrl(pdf: PDFDocument, dataUrl: string | null): Promise<P
   }
 }
 
+/** "IP 203.0.113.9 · Troy, MI, US (est. from IP) · iPhone, Safari" */
 function eventWhere(e: AuditEvent): string {
-  const parts = [e.ip ? `IP ${e.ip}` : "", geoLabel(e.geo), deviceLabel(e.user_agent)].filter(Boolean);
+  const where = geoLabel(e.geo);
+  const parts = [e.ip ? `IP ${e.ip}` : "", where ? `${where} (est. from IP)` : "", deviceLabel(e.user_agent)].filter(Boolean);
   return parts.join(" · ");
 }
 
@@ -222,22 +224,36 @@ export async function renderAgreementPdf(input: PdfInput): Promise<Uint8Array> {
 
   w.ensure(150);
   w.text("RECIPIENT", { font: fonts.bold, size: 9.5, color: MUTED, after: 6 });
-  if (signature) w.image(signature, 54);
+  if (signature && !input.draft) w.image(signature, 54);
   else w.gap(54);
   w.rule(INK);
-  w.text(`${input.signerName}${input.signerEmail ? `  ·  ${input.signerEmail}` : ""}`, { font: fonts.bold, size: 10.5, after: 1 });
-  const signedLine = signedEvent
-    ? `Signed electronically on ${formatStamp(signedEvent.at)}${eventWhere(signedEvent) ? ` · ${eventWhere(signedEvent)}` : ""}`
-    : `Signed electronically on ${formatStamp(stamp)}`;
-  w.text(signedLine, { size: 8.5, color: MUTED, after: 1 });
-  w.text(`Signature ${input.signatureMethod === "drawn" ? "drawn by hand" : "typed and adopted"} by the signer in the signing app.`, { size: 8.5, color: MUTED, after: 16 });
+  if (input.draft) {
+    w.text("Signature, printed name and date are added when the agreement is signed in the app.", { size: 8.5, color: MUTED, after: 16 });
+  } else {
+    w.text(`${input.signerName}${input.signerEmail ? `  ·  ${input.signerEmail}` : ""}`, { font: fonts.bold, size: 10.5, after: 1 });
+    const signedLine = signedEvent
+      ? `Signed electronically on ${formatStamp(signedEvent.at)}${eventWhere(signedEvent) ? ` · ${eventWhere(signedEvent)}` : ""}`
+      : `Signed electronically on ${formatStamp(stamp)}`;
+    w.text(signedLine, { size: 8.5, color: MUTED, after: 1 });
+    w.text(`Signature ${input.signatureMethod === "drawn" ? "drawn by hand" : "typed and adopted"} by the signer in the signing app.`, { size: 8.5, color: MUTED, after: 16 });
+  }
 
   w.ensure(90);
   w.text("THE COMPANY", { font: fonts.bold, size: 9.5, color: MUTED, after: 6 });
   w.text(input.doc.company.name, { font: fonts.bold, size: 11, after: 1 });
   w.text(`By ${input.doc.company.ownerName}${input.doc.company.ownerTitle ? `, ${input.doc.company.ownerTitle}` : ""}`, { size: 10, after: 1 });
-  const issuedLine = `Issued and accepted electronically on ${formatStamp(issuedEvent?.at ?? input.issuedAt)}${issuedEvent && eventWhere(issuedEvent) ? ` · ${eventWhere(issuedEvent)}` : ""}`;
+  const issuedLine = input.draft
+    ? `Issued electronically on ${formatStamp(input.issuedAt)}; accepted on signing.`
+    : `Issued and accepted electronically on ${formatStamp(issuedEvent?.at ?? input.issuedAt)}${issuedEvent && eventWhere(issuedEvent) ? ` · ${eventWhere(issuedEvent)}` : ""}`;
   w.text(issuedLine, { size: 8.5, color: MUTED, after: 4 });
+
+  if (input.draft) {
+    const pages = pdf.getPages();
+    pages.forEach((page, i) => {
+      page.drawText(`Unsigned copy · Envelope ${input.envelopeId} · Page ${i + 1} of ${pages.length}`, { x: MARGIN, y: 30, size: 7, font: fonts.regular, color: MUTED });
+    });
+    return pdf.save({ useObjectStreams: false });
+  }
 
   // --- Certificate of completion ---
   w.newPage();
