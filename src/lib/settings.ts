@@ -45,6 +45,9 @@ export async function loadSettings(): Promise<AppSettings> {
 }
 
 export async function saveSettings(next: AppSettings): Promise<void> {
-  const { error } = await db().from("settings").upsert({ key: "app", value: next, updated_at: new Date().toISOString() });
-  if (error) throw new Error("settings_save_failed");
+  const { error, status } = await db().from("settings").upsert({ key: "app", value: next, updated_at: new Date().toISOString() });
+  if (error) {
+    console.error(`settings_save_failed status=${status} code=${error.code ?? ""}`);
+    throw new Error("settings_save_failed");
+  }
 }

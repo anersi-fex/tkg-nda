@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { Badge, Card, LinkButton, Notice, PageTitle } from "@/components/ui";
+import { DbStatus } from "@/components/db-status";
+import { Badge, Card, LinkButton, PageTitle } from "@/components/ui";
+import { checkDatabase } from "@/lib/db-health";
 import { listEnvelopes, shownStatus, type EnvelopeSummary, type ShownStatus } from "@/lib/envelopes";
 import { dbConfigured } from "@/lib/supabase";
 import { formatShortStamp } from "@/lib/timezone";
@@ -60,7 +62,7 @@ export default async function HomePage() {
     return (
       <>
         <PageTitle>Agreements</PageTitle>
-        <Notice tone="amber">The database isn&apos;t connected yet. Follow SETUP.md steps 2 to 5, then come back here.</Notice>
+        <DbStatus health={await checkDatabase()} />
       </>
     );
   }
@@ -71,6 +73,7 @@ export default async function HomePage() {
   } catch {
     failed = true;
   }
+  const health = failed ? await checkDatabase() : null;
   const open = items.filter((e) => ["sent", "opened"].includes(shownStatus(e)));
   const signed = items.filter((e) => shownStatus(e) === "completed");
   const closed = items.filter((e) => ["voided", "expired"].includes(shownStatus(e)));
@@ -79,7 +82,7 @@ export default async function HomePage() {
       <PageTitle sub={items.length ? `${signed.length} signed · ${open.length} waiting` : "Non-disclosure agreements, signed on a phone"} action={<LinkButton href="/new">New NDA</LinkButton>}>
         Agreements
       </PageTitle>
-      {failed && <Notice tone="red">Couldn&apos;t read the database. Run the migration in SETUP.md step 3, then reload.</Notice>}
+      {health && <DbStatus health={health} />}
       {!failed && !items.length && (
         <Card className="text-center">
           <p className="text-[15px] font-bold text-gray-900">No agreements yet</p>
