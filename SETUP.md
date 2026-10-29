@@ -34,12 +34,12 @@ Vercel builds the `main` branch. Right now `main` holds only a one-line README: 
 
 3. Tap **Deploy**. When it is done you get an address like `tkg-nda-xxxx.vercel.app`.
 
-## Step 6. Tell the app its address
+## Step 6. Tell the app its address (only if the address is not tkg-nda.vercel.app)
 1. In Vercel, **Settings** > **Environment Variables** > **Add** `APP_URL` = `https://` + the address from step 5 (no slash at the end).
 2. **Deployments** > the top one > **…** > **Redeploy**.
 
 ## Step 7. Your company's names
-1. Open the address on your phone, sign in with your password.
+1. Open the address on your phone, sign in with your password. Settings should say **Database connected** at the top; if not, it names the value to fix and where.
 2. Tap your initials (top right) > **Settings**. Type the company's **legal** name as it is registered (for example "The Koka Group, LLC"), the office address, your name and title. **Save**.
 3. **Share** button > **Add to Home Screen** > **Add**. The icon is the pen nib.
 

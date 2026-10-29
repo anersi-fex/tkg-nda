@@ -1,5 +1,7 @@
 # CLAUDE.md — Ink (tkg-nda)
 
+**Live:** https://tkg-nda.vercel.app (Vercel project `tkg-nda`, deploys `main`; `APP_URL` is not set and not needed: the code's fallback and the request host are that address). The session sandbox cannot reach vercel.app: the owner's screenshot is the receipt. Settings shows "Database connected" when the two Supabase values are right (`src/lib/db-health.ts`).
+
 **Owner:** Anersi Koka (The Koka Group, Troy MI). Licensed MI P&C and life producer at Goosehead; runs a life-insurance phone sales team. Not a developer: one step at a time, verdict first, visual when possible, receipts before "done". Short replies. The owner answers yes or no; the session does the GitHub work itself (merging included, after marking the PR ready). Before anything that changes the live site, say in plain words what is about to happen, show a picture (a screenshot sent as a file: the owner reads on a phone), and ask.
 
 ## What this is
@@ -30,6 +32,6 @@ A sibling of Sales Coach and Scorecard with the same Tide look: a DocuSign-style
 
 ## Git
 - Work only in this repo. Develop on the branch the session assigns; open a draft PR. Vercel deploys `main`.
-- Migrations live in `supabase/migrations/`; the owner pastes each new file into the Supabase SQL editor. Anything that needs a new migration merges only after the owner ran it. `0001_init.sql` is the first (not yet run on a live project as of 2026-10-29).
+- Migrations live in `supabase/migrations/`; the owner pastes each new file into the Supabase SQL editor. Anything that needs a new migration merges only after the owner ran it. Applied on the live project: `0001_init.sql` (2026-10-29, Supabase project `ink`).
 
 **Update `HANDOFF.md` at every milestone.**
