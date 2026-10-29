@@ -294,7 +294,7 @@ export function SignView(props: Props) {
                   className="mt-3 flex justify-end"
                 >
                   {at && adoption ? (
-                    <div className="flex items-center gap-3 rounded-xl border border-tab-line/60 bg-amber-50/70 px-3 py-2" style={{ backgroundColor: "color-mix(in srgb, var(--t-tab) 14%, var(--t-paper))" }}>
+                    <div className="flex items-center gap-3 rounded-xl border border-tab-line/60 px-3 py-2" style={{ backgroundColor: "color-mix(in srgb, var(--t-tab) 14%, var(--t-paper))" }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={adoption.initialsPng} alt={`Initials of ${adoption.name}`} className="h-9 w-auto" />
                       <div className="text-[11px] leading-tight text-paper-muted">

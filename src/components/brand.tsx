@@ -7,10 +7,10 @@ import { cn } from "@/components/ui";
  */
 /** The nib on a 1024 canvas: a pointed nib with a slit and a breather hole (cut out, even-odd). Small marks drop the slit. */
 export function nibPath(small: boolean): string {
-  const body = "M512 112C664 112 772 236 772 408C772 572 630 748 512 912C394 748 252 572 252 408C252 236 360 112 512 112Z";
+  const body = "M512 100C612 100 704 146 748 226C776 278 782 334 764 392L548 904C534 938 490 938 476 904L260 392C242 334 248 278 276 226C320 146 412 100 512 100Z";
   if (small) return body;
-  const hole = "M512 428C535 428 554 447 554 470C554 493 535 512 512 512C489 512 470 493 470 470C470 447 489 428 512 428Z";
-  const slit = "M500 508H524V840L512 862L500 840Z";
+  const hole = "M512 380C538 380 558 400 558 426C558 452 538 472 512 472C486 472 466 452 466 426C466 400 486 380 512 380Z";
+  const slit = "M501 468H523V842L512 864L501 842Z";
   return body + hole + slit;
 }
 
